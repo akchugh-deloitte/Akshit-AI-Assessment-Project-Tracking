@@ -5,6 +5,7 @@ using ServiceApi.API.Services;
 using ServiceApi.API.Utilities;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
+using System.IO;
 
 namespace ServiceApi.API.Controllers;
 
@@ -40,6 +41,29 @@ public class AttachmentsController : ControllerBase
 
         if (file == null || file.Length == 0)
             return BadRequest(new { message = "No file uploaded" });
+
+        // Basic validation: max size 10 MB and allowed content types/extensions
+        const long maxBytes = 10 * 1024 * 1024;
+        if (file.Length > maxBytes)
+        {
+            var errors = new Dictionary<string, string[]> { ["file"] = new[] { "File size must be 10 MB or less." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".pdf")
+        {
+            var errors = new Dictionary<string, string[]> { ["file"] = new[] { "Unsupported file extension. Allowed: .jpg, .jpeg, .png, .pdf." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+
+        if (file.ContentType != "image/jpeg" &&
+            file.ContentType != "image/png" &&
+            file.ContentType != "application/pdf")
+        {
+            var errors = new Dictionary<string, string[]> { ["file"] = new[] { "Unsupported content type. Allowed: image/jpeg, image/png, application/pdf." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
 
         var created = await _service.UploadAsync(issueId, User.GetUserId(), file);
         return CreatedAtAction(nameof(GetAll), new { issueId }, created);

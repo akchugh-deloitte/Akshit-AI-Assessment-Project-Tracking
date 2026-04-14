@@ -36,6 +36,13 @@ public class CommentsController : ControllerBase
         if (!await _service.IssueExistsAsync(issueId))
             return NotFound(new { message = "Issue not found" });
 
+        // Basic validation
+        if (string.IsNullOrWhiteSpace(request.Content))
+        {
+            var errors = new Dictionary<string, string[]> { ["Content"] = new[] { "Content cannot be empty or whitespace." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+
         var created = await _service.CreateAsync(issueId, User.GetUserId(), request);
         return CreatedAtAction(nameof(GetAll), new { issueId }, created);
     }

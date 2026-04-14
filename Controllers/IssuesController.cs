@@ -18,6 +18,7 @@ public class IssuesController : ControllerBase
 
 
     /// <summary>List issues for a project with optional filters</summary>
+    [ResponseCache(Duration = 15, Location = ResponseCacheLocation.Any, NoStore = false)]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<IssueResponse>>> GetAll(
         int projectId,
@@ -52,6 +53,28 @@ public class IssuesController : ControllerBase
             !await _service.UserExistsAsync(request.AssigneeId.Value))
             return BadRequest(new { message = "Assignee user not found" });
 
+        // Basic validation
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            var errors = new Dictionary<string, string[]> { ["Title"] = new[] { "Title cannot be empty or whitespace." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+        if (request.DueDate.HasValue && request.DueDate.Value.Date < DateTime.UtcNow.Date)
+        {
+            var errors = new Dictionary<string, string[]> { ["DueDate"] = new[] { "Due date cannot be in the past." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+        if (!Enum.IsDefined(typeof(Models.IssuePriority), request.Priority))
+        {
+            var errors = new Dictionary<string, string[]> { ["Priority"] = new[] { "Invalid priority value." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+        if (request.AssigneeId.HasValue && request.AssigneeId.Value < 0)
+        {
+            var errors = new Dictionary<string, string[]> { ["AssigneeId"] = new[] { "AssigneeId cannot be negative." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+
         var created = await _service.CreateAsync(projectId, User.GetUserId(), request);
 
         return CreatedAtAction(nameof(GetById),
@@ -68,6 +91,33 @@ public class IssuesController : ControllerBase
             !await _service.UserExistsAsync(request.AssigneeId.Value))
         {
             return BadRequest(new { message = "Assignee user not found" });
+        }
+
+        // Basic validation
+        if (request.Title is not null && string.IsNullOrWhiteSpace(request.Title))
+        {
+            var errors = new Dictionary<string, string[]> { ["Title"] = new[] { "Title cannot be empty or whitespace." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+        if (request.DueDate.HasValue && request.DueDate.Value.Date < DateTime.UtcNow.Date)
+        {
+            var errors = new Dictionary<string, string[]> { ["DueDate"] = new[] { "Due date cannot be in the past." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+        if (request.Status.HasValue && !Enum.IsDefined(typeof(Models.IssueStatus), request.Status.Value))
+        {
+            var errors = new Dictionary<string, string[]> { ["Status"] = new[] { "Invalid status value." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+        if (request.Priority.HasValue && !Enum.IsDefined(typeof(Models.IssuePriority), request.Priority.Value))
+        {
+            var errors = new Dictionary<string, string[]> { ["Priority"] = new[] { "Invalid priority value." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+        if (request.AssigneeId.HasValue && request.AssigneeId.Value < 0)
+        {
+            var errors = new Dictionary<string, string[]> { ["AssigneeId"] = new[] { "AssigneeId cannot be negative." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
         }
 
         var updated = await _service.UpdateAsync(projectId, id, request);
@@ -100,6 +150,7 @@ public class AllIssuesController : ControllerBase
     public AllIssuesController(IIssueService service) => _service = service;
 
     /// <summary>List all issues with filters (cross-project)</summary>
+    [ResponseCache(Duration = 15, Location = ResponseCacheLocation.Any, NoStore = false)]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<IssueResponse>>> GetAll(
         [FromQuery] IssueFilterRequest filter)

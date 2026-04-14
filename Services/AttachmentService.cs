@@ -11,10 +11,12 @@ public class AttachmentService : IAttachmentService
 {
     private readonly IAttachmentRepository _repo;
     private readonly IWebHostEnvironment _env;
-    public AttachmentService(IAttachmentRepository repo, IWebHostEnvironment env)
+    private readonly ILogger<AttachmentService> _logger;
+    public AttachmentService(IAttachmentRepository repo, IWebHostEnvironment env, ILogger<AttachmentService> logger)
     {
         _repo = repo;
         _env = env;
+        _logger = logger;
     }
 
     public Task<bool> IssueExistsAsync(int issueId, CancellationToken ct = default) =>
@@ -28,6 +30,8 @@ public class AttachmentService : IAttachmentService
 
     public async Task<AttachmentResponse> CreateAsync(int issueId, int currentUserId, CreateAttachmentRequest request, CancellationToken ct = default)
     {
+        _logger.LogInformation("Creating attachment metadata for issue {IssueId} by user {UserId}: {FileName}", issueId, currentUserId, request.FileName);
+
         var attachment = new Attachment
         {
             IssueId = issueId,
@@ -41,7 +45,6 @@ public class AttachmentService : IAttachmentService
         await _repo.AddAsync(attachment, ct);
         await _repo.SaveChangesAsync(ct);
 
-        // UploadedByName might be empty immediately after create; it will populate in subsequent queries
         return ToResponse(attachment);
     }
 
@@ -52,6 +55,8 @@ public class AttachmentService : IAttachmentService
 
         if (attachment.UploadedById != currentUserId && !isAdmin)
             return DeleteAttachmentResult.Forbidden;
+
+        _logger.LogInformation("Deleting attachment {AttachmentId} for issue {IssueId} by user {UserId} (isAdmin={IsAdmin})", id, issueId, currentUserId, isAdmin);
 
         await _repo.RemoveAsync(attachment, ct);
         await _repo.SaveChangesAsync(ct);
@@ -69,6 +74,8 @@ public class AttachmentService : IAttachmentService
         var storedName = $"{Guid.NewGuid():N}_{safeName}";
         var fullPath = Path.Combine(uploadRoot, storedName);
 
+        _logger.LogInformation("Uploading file for issue {IssueId} by user {UserId}: {Original} -> {Stored}", issueId, currentUserId, originalName, storedName);
+
         using (var stream = new FileStream(fullPath, FileMode.Create))
         {
             await file.CopyToAsync(stream, ct);
@@ -84,8 +91,18 @@ public class AttachmentService : IAttachmentService
             UploadedOn = DateTime.UtcNow
         };
 
-        await _repo.AddAsync(attachment, ct);
-        await _repo.SaveChangesAsync(ct);
+        try
+        {
+            await _repo.AddAsync(attachment, ct);
+            await _repo.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to persist attachment metadata. Rolling back stored file at {Path}", fullPath);
+            try { if (File.Exists(fullPath)) File.Delete(fullPath); } catch { /* swallow cleanup errors */ }
+            throw;
+        }
+
         return ToResponse(attachment);
     }
 

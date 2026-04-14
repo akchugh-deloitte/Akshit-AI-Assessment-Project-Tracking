@@ -16,6 +16,7 @@ public class ProjectsController : ControllerBase
     public ProjectsController(IProjectService service) => _service = service;
 
     /// <summary>List all projects</summary>
+    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, NoStore = false)]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProjectResponse>>> GetAll(
         [FromQuery] int? pageNumber = null,
@@ -46,6 +47,13 @@ public class ProjectsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProjectResponse>> Create([FromBody] CreateProjectRequest request)
     {
+        // Basic validation
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            var errors = new Dictionary<string, string[]> { ["Name"] = new[] { "Name cannot be empty or whitespace." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+
         var created = await _service.CreateAsync(request);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
@@ -55,6 +63,19 @@ public class ProjectsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProjectResponse>> Update(int id, [FromBody] UpdateProjectRequest request)
     {
+        // Basic validation
+        if (request.Name is not null && string.IsNullOrWhiteSpace(request.Name))
+        {
+            var errors = new Dictionary<string, string[]> { ["Name"] = new[] { "Name cannot be empty or whitespace." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+
+        if(request.Status.HasValue && !Enum.IsDefined(typeof(Models.ProjectStatus), request.Status.Value))
+        {
+            var errors = new Dictionary<string, string[]> { ["Status"] = new[] { "Invalid status value." } };
+            return ValidationProblem(new ValidationProblemDetails(errors) { Status = 400, Title = "Validation failed" });
+        }
+
         var updated = await _service.UpdateAsync(id, request);
         if (updated == null) return NotFound();
         return Ok(updated);

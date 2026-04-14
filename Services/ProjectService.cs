@@ -1,18 +1,44 @@
 using ServiceApi.API.DTOs;
 using ServiceApi.API.Models;
 using ServiceApi.API.Repositories;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
 namespace ServiceApi.API.Services;
 
 public class ProjectService : IProjectService
 {
     private readonly IProjectRepository _repo;
-    public ProjectService(IProjectRepository repo) => _repo = repo;
+    private readonly IMemoryCache _cache;
+    private readonly ILogger<ProjectService> _logger;
+    private const string ProjectsCacheKey = "projects:all";
+
+    public ProjectService(IProjectRepository repo, IMemoryCache cache, ILogger<ProjectService> logger)
+    {
+        _repo = repo;
+        _cache = cache;
+        _logger = logger;
+    }
 
     public async Task<IReadOnlyList<ProjectResponse>> GetAllAsync(CancellationToken ct = default)
     {
+        if (_cache.TryGetValue<IReadOnlyList<ProjectResponse>>(ProjectsCacheKey, out var cached))
+        {
+            _logger.LogDebug("Projects cache hit");
+            return cached!;
+        }
+
         var projects = await _repo.GetAllAsync(ct);
-        return projects.Select(ToResponse).ToList();
+        var result = projects.Select(ToResponse).ToList();
+
+        var options = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
+        };
+        _cache.Set(ProjectsCacheKey, result, options);
+        _logger.LogDebug("Projects cache set for 30s");
+
+        return result;
     }
 
     public async Task<ProjectResponse?> GetByIdAsync(int id, CancellationToken ct = default)
@@ -33,6 +59,10 @@ public class ProjectService : IProjectService
 
         await _repo.AddAsync(project, ct);
         await _repo.SaveChangesAsync(ct);
+
+        _cache.Remove(ProjectsCacheKey);
+        _logger.LogInformation("Project created: {ProjectId} - {Name}", project.Id, project.Name);
+
         return ToResponse(project);
     }
 
@@ -47,6 +77,10 @@ public class ProjectService : IProjectService
         project.UpdatedOn = DateTime.UtcNow;
 
         await _repo.SaveChangesAsync(ct);
+
+        _cache.Remove(ProjectsCacheKey);
+        _logger.LogInformation("Project updated: {ProjectId}", project.Id);
+
         return ToResponse(project);
     }
 
@@ -57,6 +91,10 @@ public class ProjectService : IProjectService
 
         await _repo.RemoveAsync(project, ct);
         await _repo.SaveChangesAsync(ct);
+
+        _cache.Remove(ProjectsCacheKey);
+        _logger.LogInformation("Project deleted: {ProjectId}", id);
+
         return DeleteProjectResult.Deleted;
     }
 
