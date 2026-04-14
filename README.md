@@ -1,4 +1,4 @@
-# WorkTrack Lite – Project & Issue Management API
+# Project & Issue Management API
 
 A lightweight, production-style .NET Web API for managing Projects, Issues/Tasks, Comments, and Attachments with JWT authentication, filtering, and seeding.
 
@@ -79,6 +79,19 @@ Key packages (see ServiceApi.API.csproj):
 - Scalar.AspNetCore
 
 ---
+## Screenshots
+
+<img width="221" height="419" alt="image" src="https://github.com/user-attachments/assets/effbc3a0-5090-45c3-ade8-223deedf9349" />
+<img width="706" height="463" alt="image" src="https://github.com/user-attachments/assets/c5afbbbb-ba32-4ca6-a2e0-457c233ae104" />
+<img width="448" height="465" alt="image" src="https://github.com/user-attachments/assets/fa396ac1-9283-4686-8f4a-337c0d92c40a" />
+<img width="717" height="436" alt="image" src="https://github.com/user-attachments/assets/73db12f8-ff90-4f67-ae91-5232f9d357b1" />
+<img width="701" height="281" alt="image" src="https://github.com/user-attachments/assets/826d0e42-37d7-4fc3-b110-f9e61324bcd9" />
+<img width="719" height="326" alt="image" src="https://github.com/user-attachments/assets/9b27f104-60f0-4ab0-860d-55061854b5ba" />
+<img width="202" height="199" alt="image" src="https://github.com/user-attachments/assets/f42c6b6d-733f-4e62-a804-ee881cc185a8" />
+<img width="708" height="371" alt="image" src="https://github.com/user-attachments/assets/244ae7e1-5f21-4be1-980f-2d4396738ccb" />
+<img width="685" height="365" alt="image" src="https://github.com/user-attachments/assets/f0253fdc-e821-4dd1-b615-7e0db1a3d319" />
+
+
 
 ## Solution Structure
 
