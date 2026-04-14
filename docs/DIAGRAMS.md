@@ -1,8 +1,8 @@
 # WorkTrack Lite – Architecture Diagrams (Mermaid)
 
-This document provides Mermaid syntax for ER diagram and key request/feature flows. Paste these blocks into any Mermaid-compatible renderer (e.g., GitHub, VS Code extensions, Mermaid Live).
+These Mermaid blocks are simplified to be GitHub-safe (no inline comments in ERD fields, no special characters in flow labels). Paste them directly in GitHub Markdown or any Mermaid renderer.
 
-## 1) Entity Relationship Diagram
+## 1) Entity Relationship Diagram (ERD)
 
 ```mermaid
 erDiagram
@@ -11,7 +11,7 @@ erDiagram
       string Username
       string Email
       string PasswordHash
-      string Role  // Admin | Member
+      string Role
       datetime CreatedOn
     }
 
@@ -19,7 +19,7 @@ erDiagram
       int Id PK
       string Name
       string Description
-      string Status  // Active | Inactive
+      string Status
       datetime CreatedOn
       datetime UpdatedOn
     }
@@ -29,13 +29,13 @@ erDiagram
       int ProjectId FK
       string Title
       string Description
-      string Status    // Open | InProgress | Resolved | Closed
-      string Priority  // Low | Medium | High
+      string Status
+      string Priority
       int ReporterId FK
-      int AssigneeId FK nullable
-      datetime DueDate nullable
+      int AssigneeId FK
+      datetime DueDate
       datetime CreatedOn
-      datetime UpdatedOn nullable
+      datetime UpdatedOn
     }
 
     COMMENT {
@@ -51,23 +51,23 @@ erDiagram
       int IssueId FK
       string FileName
       string FilePath
-      string ContentType nullable
+      string ContentType
       int UploadedById FK
       datetime UploadedOn
     }
 
-    PROJECT ||--o{ ISSUE : "contains"
-    USER ||--o{ ISSUE : "reports (ReporterId)"
-    USER ||--o{ ISSUE : "assigned to (AssigneeId)"
-    ISSUE ||--o{ COMMENT : "has"
-    USER ||--o{ COMMENT : "writes (AuthorId)"
-    ISSUE ||--o{ ATTACHMENT : "has"
-    USER ||--o{ ATTACHMENT : "uploads (UploadedById)"
+    PROJECT ||--o{ ISSUE : contains
+    USER ||--o{ ISSUE : reports
+    USER ||--o{ ISSUE : assigned_to
+    ISSUE ||--o{ COMMENT : has
+    USER ||--o{ COMMENT : writes
+    ISSUE ||--o{ ATTACHMENT : has
+    USER ||--o{ ATTACHMENT : uploads
 ```
 
 Notes:
-- Enums are serialized as strings in responses.
-- Attachments are stored under wwwroot/uploads; API returns metadata.
+- Status and Priority are enums represented as strings in API responses.
+- AssigneeId and DueDate may be null in the database model, represented here without nullability to keep Mermaid syntax simple.
 
 ---
 
@@ -75,155 +75,172 @@ Notes:
 
 ```mermaid
 flowchart LR
-    C[Client] -->|HTTP| GW((API Endpoint))
-    GW -->|JWT Bearer| AUTH[AuthN/Z Middleware]
-    AUTH --> CTRL[Controller]
-    CTRL --> SVC[Service Layer]
-    SVC --> REPO[Repository]
-    REPO --> DB[(SQL Server)]
-    REPO --> FS[(wwwroot/uploads)]:::fs
+    Client --> API
+    API --> Auth
+    Auth --> Controller
+    Controller --> Service
+    Service --> Repository
+    Repository --> Database
+    Repository --> Uploads
 
-    DB --> REPO --> SVC --> CTRL --> C
-    FS --> REPO
-
-    classDef fs fill:#eef,stroke:#66f
+    Uploads[wwwroot/uploads]
+    API[API Endpoint]
+    Auth[JWT Auth]
+    Controller[Controllers]
+    Service[Services]
+    Repository[Repositories]
+    Database[(SQL Server)]
 ```
-
-- OpenAPI/Scalar UI exposed in Development at /scalar/v1
-- Static files middleware serves uploads for GETs
 
 ---
 
-## 3) Auth: Login Flow
+## 3) Auth: Login Flow (Sequence)
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant A as AuthController
-    participant S as AuthService
-    participant U as UserRepository (via DbContext)
+    participant Client
+    participant AuthController
+    participant AuthService
+    participant UserRepo
 
-    C->>A: POST /api/auth/login { username, password }
-    A->>S: LoginAsync(request)
-    S->>U: Find user by Username
-    U-->>S: User + PasswordHash
-    S-->>A: LoginResponse { token, username, role }
-    A-->>C: 200 OK + JWT
+    Client->>AuthController: POST /api/auth/login
+    AuthController->>AuthService: LoginAsync
+    AuthService->>UserRepo: Find by username
+    UserRepo-->>AuthService: User + PasswordHash
+    AuthService-->>AuthController: LoginResponse (JWT, username, role)
+    AuthController-->>Client: 200 OK
 ```
-
-- JWT config from appsettings.json (Issuer, Audience, Key)
-- Use Authorization: Bearer {token} for secured endpoints
 
 ---
 
-## 4) Projects: List with Sorting & Paging
+## 4) Projects: List with Sorting and Paging
 
 ```mermaid
 flowchart TD
-    C[Client] -->|GET /api/projects?sortBy=&sortDir=&pageNumber=&pageSize=| PCTRL[ProjectsController]
-    PCTRL --> PSVC[ProjectService.GetAllAsync()]
-    PSVC --> PREPO[ProjectRepository.GetAllAsync()]
-    PREPO --> DB[(SQL Server)]
-    DB --> PREPO --> PSVC
-    PSVC --> PCTRL
-    PCTRL -->|ApplyProjectSorting + ApplyPaging| C
+    Client --> ProjectsController
+    ProjectsController --> ProjectService
+    ProjectService --> ProjectRepository
+    ProjectRepository --> Database
+    ProjectsController --> SortAndPage
+
+    SortAndPage[Apply sorting and paging]
+    Database[(SQL Server)]
 ```
 
-- sortBy: createdOn | name | status | issueCount
-- sortDir: asc | desc
-- Defaults: pageNumber=1, pageSize=20 (1..100)
+- SortBy: createdOn, name, status, issueCount
+- SortDir: asc, desc
+- PageNumber default 1, PageSize default 20 (min 1, max 100)
 
 ---
 
-## 5) Issues: Create (Validation + Command)
+## 5) Issues: Create
 
 ```mermaid
 flowchart TD
-    C[Client] -->|POST /api/projects/{projectId}/issues| ICTRL_1_1_1[IssuesController.Create]
-    ICTRL_1_1_1 --> ISVC[IssueService.CreateAsync]
-    ICTRL_1_1_1 -->|validate project exists| ISVC
-    ICTRL_1_1_1 -->|validate assignee (if provided)| ISVC
-    ISVC --> IREPO[IssueRepository.AddAsync + SaveChanges]
-    IREPO --> DB[(SQL Server)]
-    DB --> IREPO --> ISVC --> ICTRL_1_1_1 -->|201 Created + IssueResponse| C
-```
+    Client --> IssuesController_Create[IssuesController Create]
+    IssuesController_Create --> ValidateProject[Validate project exists]
+    IssuesController_Create --> ValidateAssignee[Validate assignee optional]
+    IssuesController_Create --> IssueService_Create[IssueService CreateAsync]
+    IssueService_Create --> IssueRepository_Add[Add + SaveChanges]
+    IssueRepository_Add --> Database
 
-Validation rules:
-- 404 if Project not found
-- 400 if AssigneeId provided but user not found
-- Status initialized as Open; timestamps set in service
+    Database[(SQL Server)]
+```
 
 ---
 
-## 6) Issues: Filter, Sort, Paginate (Project-Scoped and Global)
+## 6) Issues: Filter, Sort, Paginate (Project Scoped)
 
 ```mermaid
 flowchart TD
-    C[Client] -->|GET /api/projects/{projectId}/issues?status=&priority=&assigneeId=&search=&dueBefore=&pageNumber=&pageSize=&sortBy=&sortDir=| ICTRL[IssuesController.GetAll]
-    ICTRL --> ISVC[IssueService.GetAllByProjectAsync]
-    ISVC --> IREPO[IssueRepository.GetAllByProjectAsync]
-    IREPO -->|ApplyIssueFilters| QF[QueryExtensions.ApplyIssueFilters]
-    IREPO -->|ApplyIssueSorting| QS[QueryExtensions.ApplyIssueSorting]
-    IREPO -->|ApplyPaging| QP[QueryExtensions.ApplyPaging]
-    QF --> QS --> QP --> DB[(SQL Server)] --> IREPO --> ISVC --> ICTRL --> C
+    Client --> IssuesController_List[IssuesController GetAll]
+    IssuesController_List --> IssueService_List[IssueService GetAllByProjectAsync]
+    IssueService_List --> IssueRepository_List[IssueRepository GetAllByProjectAsync]
+    IssueRepository_List --> ApplyFilters[Apply filters]
+    ApplyFilters --> ApplySorting[Apply sorting]
+    ApplySorting --> ApplyPaging[Apply paging]
+    ApplyPaging --> Database
+
+    Database[(SQL Server)]
 ```
 
-Global listing:
-- GET /api/issues uses same filter/sort/page; optionally filter.ProjectId
-
-Issues sortBy allowed:
-- createdOn, updatedOn, dueDate, priority, status, title, assigneeName
+- Filters: status, priority, assigneeId, search, dueBefore
+- SortBy: createdOn, updatedOn, dueDate, priority, status, title, assigneeName
+- Pagination: pageNumber, pageSize
 
 ---
 
-## 7) Comments: Add and Delete
+## 7) Issues: Global Listing
+
+```mermaid
+flowchart TD
+    Client --> AllIssuesController[All issues controller]
+    AllIssuesController --> IssueService_Global[IssueService GetAllGlobalAsync]
+    IssueService_Global --> IssueRepository_Global[IssueRepository GetAllGlobalAsync]
+    IssueRepository_Global --> ApplyFiltersGlobal[Apply filters]
+    ApplyFiltersGlobal --> ApplySortingGlobal[Apply sorting]
+    ApplySortingGlobal --> ApplyPagingGlobal[Apply paging]
+    ApplyPagingGlobal --> Database
+
+    Database[(SQL Server)]
+```
+
+---
+
+## 8) Comments: Add and Delete
 
 ```mermaid
 flowchart LR
-    C[Client] -->|POST /api/issues/{issueId}/comments| CCTRL[CommentsController.Create]
-    CCTRL --> CSVCS[CommentService.CreateAsync]
-    CSVCS --> CREPO[CommentRepository + SaveChanges]
-    CREPO --> DB[(SQL Server)]
-    DB --> CREPO --> CSVCS --> CCTRL --> C
+    Client --> Comments_Create[CommentsController Create]
+    Comments_Create --> CommentService_Create[CommentService CreateAsync]
+    CommentService_Create --> CommentRepository_Save[SaveChanges]
+    CommentRepository_Save --> Database
 
-    C -.->|DELETE /api/issues/{issueId}/comments/{id}| CCTRL_DEL[CommentsController.Delete]
-    CCTRL_DEL --> CSVCS_DEL[CommentService.DeleteAsync]
-    CSVCS_DEL -->|author or Admin| CREPO
-    CREPO --> DB --> CSVCS_DEL --> CCTRL_DEL --> C
+    Client --> Comments_Delete[CommentsController Delete]
+    Comments_Delete --> CommentService_Delete[CommentService DeleteAsync]
+    CommentService_Delete --> CheckAuthorAdmin[Check author or admin]
+    CheckAuthorAdmin --> CommentRepository_Remove[Remove + SaveChanges]
+    CommentRepository_Remove --> Database
+
+    Database[(SQL Server)]
 ```
 
 ---
 
-## 8) Attachments: Upload and Delete
+## 9) Attachments: Upload and Delete
 
 ```mermaid
 flowchart TD
-    C[Client] -->|POST multipart/form-data /api/issues/{issueId}/attachments/upload| ACTRL[AttachmentsController.Upload]
-    ACTRL --> ASVC[AttachmentService.UploadAsync]
-    ASVC -->|validate issue exists| AREPO
-    ASVC -->|save file to wwwroot/uploads| FS[(Static Files)]
-    ASVC -->|persist metadata| AREPO[AttachmentRepository + SaveChanges]
-    AREPO --> DB[(SQL Server)]
-    DB --> AREPO --> ASVC --> ACTRL -->|201 Created + AttachmentResponse| C
+    Client --> Attachments_Upload[AttachmentsController Upload]
+    Attachments_Upload --> AttachmentService_Upload[AttachmentService UploadAsync]
+    AttachmentService_Upload --> ValidateIssue[Validate issue exists]
+    AttachmentService_Upload --> SaveFile[Save file to wwwroot/uploads]
+    AttachmentService_Upload --> AttachmentRepository_Save[Persist metadata]
+    AttachmentRepository_Save --> Database
 
-    C -->|DELETE /api/issues/{issueId}/attachments/{id}| ACTRL_DEL[AttachmentsController.Delete]
-    ACTRL_DEL --> ASVC_DEL[AttachmentService.DeleteAsync (uploader or Admin)]
-    ASVC_DEL --> AREPO_DEL[Delete + SaveChanges] --> DB
+    Client --> Attachments_Delete[AttachmentsController Delete]
+    Attachments_Delete --> AttachmentService_Delete[AttachmentService DeleteAsync]
+    AttachmentService_Delete --> CheckUploaderAdmin[Check uploader or admin]
+    AttachmentService_Delete --> AttachmentRepository_Remove[Remove + SaveChanges]
+    AttachmentRepository_Remove --> Database
+
+    Database[(SQL Server)]
 ```
 
 ---
 
-## 9) Error Handling & Auth Pipeline
+## 10) Error Handling and Auth Pipeline
 
 ```mermaid
 flowchart LR
-    REQ[Request] --> EX[ExceptionMiddleware]
-    EX --> AUTHN[JWT Authentication]
-    AUTHN --> AUTHZ[Authorization (Roles/Policies)]
-    AUTHZ --> ROUTE[MapControllers]
-    ROUTE --> RES[Response]
-```
+    Request --> ExceptionMiddleware
+    ExceptionMiddleware --> Authentication
+    Authentication --> Authorization
+    Authorization --> MapControllers
+    MapControllers --> Response
 
-- Centralized exception handling via ExceptionMiddleware returns consistent error payloads.
-
----
+    Request[Request]
+    Authentication[JWT Authentication]
+    Authorization[Authorization]
+    MapControllers[Route to controllers]
+    Response[Response]
