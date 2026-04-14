@@ -1,0 +1,98 @@
+# .NET / Visual Studio / VS Code ignore rules for ServiceApi.API
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+*.log
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.rsuser
+*.swp
+*.tmp
+
+# Visual Studio / Rider / IDE
+.vs/
+.idea/
+*.sln.iml
+
+# ReSharper / DotCover / Rider
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+*.dotCover
+
+# NuGet
+*.nupkg
+*.snupkg
+# If using packages folder (not typical for SDK-style projects)
+packages/
+# NuGet v3 cache, on Windows
+%USERPROFILE%\.nuget\packages\
+
+# Publish profiles and artifacts
+[Pp]ublish*/ 
+*.pubxml
+*.pubxml.user
+
+# Entity Framework
+# Keep Migrations/ tracked; do not ignore
+# EF tools design-time files
+*efpt.config.json
+
+# Test results and coverage
+[Tt]est[Rr]esults/
+*.coverage
+*.coveragexml
+coverage/
+.vscode-test/
+
+# Local tooling and environment
+.env
+.env.*
+secrets.json
+
+# App settings (keep main appsettings.json tracked by default)
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+# If appsettings.json contains secrets, consider uncommenting the next line:
+# appsettings.json
+
+# Launch settings (often machine-specific)
+Properties/launchSettings.json
+
+# HTTP scratch files
+*.http
+*.rest
+
+# Databases and local storage
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+worktrack.db
+worktrack.db-shm
+worktrack.db-wal
+
+# Static uploads (runtime artifacts; keep folder, ignore contents)
+wwwroot/uploads/*
+!wwwroot/uploads/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dotnet tools
+.dotnet/
+.localhistory/
+
+# Rider / solution caches
+*.ipr
+*.iws
