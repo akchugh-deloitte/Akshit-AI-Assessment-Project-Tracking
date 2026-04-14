@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ServiceApi.API.Services;
 using ServiceApi.API.DTOs;
+using ServiceApi.API.Utilities;
 
 namespace ServiceApi.API.Controllers;
 
@@ -15,8 +16,6 @@ public class IssuesController : ControllerBase
 
     public IssuesController(IIssueService service) => _service = service;
 
-    private int CurrentUserId =>
-        int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     /// <summary>List issues for a project with optional filters</summary>
     [HttpGet]
@@ -53,7 +52,7 @@ public class IssuesController : ControllerBase
             !await _service.UserExistsAsync(request.AssigneeId.Value))
             return BadRequest(new { message = "Assignee user not found" });
 
-        var created = await _service.CreateAsync(projectId, CurrentUserId, request);
+        var created = await _service.CreateAsync(projectId, User.GetUserId(), request);
 
         return CreatedAtAction(nameof(GetById),
             new { projectId, id = created.Id }, created);

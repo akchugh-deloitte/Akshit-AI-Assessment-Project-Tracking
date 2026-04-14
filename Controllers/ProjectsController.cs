@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ServiceApi.API.DTOs;
 using ServiceApi.API.Services;
+using ServiceApi.API.Utilities;
 
 namespace ServiceApi.API.Controllers;
 
@@ -24,30 +25,11 @@ public class ProjectsController : ControllerBase
     {
         var items = await _service.GetAllAsync();
 
-        // Sorting
-        var sort = (sortBy ?? string.Empty).ToLowerInvariant();
-        var desc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
-        IEnumerable<ProjectResponse> query = items;
+        var result = items
+            .ApplyProjectSorting(sortBy, sortDir)
+            .ApplyPaging(pageNumber, pageSize);
 
-        query = sort switch
-        {
-            "createdon" => desc ? items.OrderByDescending(p => p.CreatedOn) : items.OrderBy(p => p.CreatedOn),
-            "name" => desc ? items.OrderByDescending(p => p.Name) : items.OrderBy(p => p.Name),
-            "status" => desc ? items.OrderByDescending(p => p.Status) : items.OrderBy(p => p.Status),
-            "issuecount" => desc ? items.OrderByDescending(p => p.IssueCount) : items.OrderBy(p => p.IssueCount),
-            _ => items.OrderByDescending(p => p.CreatedOn)
-        };
-
-        // Paging
-        var page = pageNumber.GetValueOrDefault(1);
-        if (page < 1) page = 1;
-
-        var size = pageSize.GetValueOrDefault(20);
-        if (size < 1) size = 1;
-        if (size > 100) size = 100;
-
-        var paged = query.Skip((page - 1) * size).Take(size).ToList();
-        return Ok(paged);
+        return Ok(result);
     }
 
     /// <summary>Get a single project by ID</summary>

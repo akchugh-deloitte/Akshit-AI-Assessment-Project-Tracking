@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ServiceApi.API.DTOs;
 using ServiceApi.API.Services;
+using ServiceApi.API.Utilities;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 
@@ -15,8 +16,6 @@ public class AttachmentsController : ControllerBase
     private readonly IAttachmentService _service;
     public AttachmentsController(IAttachmentService service) => _service = service;
 
-    private int CurrentUserId =>
-        int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     /// <summary>Get all attachments for an issue</summary>
     [HttpGet]
@@ -42,7 +41,7 @@ public class AttachmentsController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest(new { message = "No file uploaded" });
 
-        var created = await _service.UploadAsync(issueId, CurrentUserId, file);
+        var created = await _service.UploadAsync(issueId, User.GetUserId(), file);
         return CreatedAtAction(nameof(GetAll), new { issueId }, created);
     }
 
@@ -50,7 +49,7 @@ public class AttachmentsController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int issueId, int id)
     {
-        var result = await _service.DeleteAsync(issueId, id, CurrentUserId, User.IsInRole("Admin"));
+        var result = await _service.DeleteAsync(issueId, id, User.GetUserId(), User.IsInRole("Admin"));
         return result switch
         {
             DeleteAttachmentResult.NotFound => NotFound(),

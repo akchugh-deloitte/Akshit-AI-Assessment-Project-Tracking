@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ServiceApi.API.DTOs;
 using ServiceApi.API.Services;
+using ServiceApi.API.Utilities;
 
 namespace ServiceApi.API.Controllers;
 
@@ -14,8 +15,6 @@ public class CommentsController : ControllerBase
     private readonly ICommentService _service;
     public CommentsController(ICommentService service) => _service = service;
 
-    private int CurrentUserId =>
-        int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     /// <summary>Get all comments for an issue</summary>
     [HttpGet]
@@ -37,7 +36,7 @@ public class CommentsController : ControllerBase
         if (!await _service.IssueExistsAsync(issueId))
             return NotFound(new { message = "Issue not found" });
 
-        var created = await _service.CreateAsync(issueId, CurrentUserId, request);
+        var created = await _service.CreateAsync(issueId, User.GetUserId(), request);
         return CreatedAtAction(nameof(GetAll), new { issueId }, created);
     }
 
@@ -45,7 +44,7 @@ public class CommentsController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int issueId, int id)
     {
-        var result = await _service.DeleteAsync(issueId, id, CurrentUserId, User.IsInRole("Admin"));
+        var result = await _service.DeleteAsync(issueId, id, User.GetUserId(), User.IsInRole("Admin"));
         return result switch
         {
             DeleteCommentResult.NotFound => NotFound(),
