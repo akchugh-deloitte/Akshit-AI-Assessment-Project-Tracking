@@ -28,7 +28,9 @@ public class IssueRepository : IIssueRepository
             .AsQueryable();
 
         ApplyFilters(ref query, filter);
-        return await query.OrderByDescending(i => i.CreatedOn).ToListAsync(ct);
+        ApplySorting(ref query, filter);
+        ApplyPaging(ref query, filter);
+        return await query.ToListAsync(ct);
     }
 
     public Task<Issue?> GetByIdAsync(int projectId, int id, CancellationToken ct = default) =>
@@ -62,7 +64,9 @@ public class IssueRepository : IIssueRepository
             query = query.Where(i => i.ProjectId == filter.ProjectId);
 
         ApplyFilters(ref query, filter);
-        return await query.OrderByDescending(i => i.CreatedOn).ToListAsync(ct);
+        ApplySorting(ref query, filter);
+        ApplyPaging(ref query, filter);
+        return await query.ToListAsync(ct);
     }
 
     public async Task<Issue> AddAsync(Issue issue, CancellationToken ct = default)
@@ -97,5 +101,45 @@ public class IssueRepository : IIssueRepository
 
         if (filter.DueBefore.HasValue)
             query = query.Where(i => i.DueDate <= filter.DueBefore);
+    }
+
+    private static void ApplySorting(ref IQueryable<Issue> query, IssueFilterRequest filter)
+    {
+        var sortBy = (filter.SortBy ?? string.Empty).ToLowerInvariant();
+        var desc = string.Equals(filter.SortDir, "desc", StringComparison.OrdinalIgnoreCase);
+
+        // Default sorting when none specified
+        if (string.IsNullOrWhiteSpace(sortBy))
+        {
+            query = query.OrderByDescending(i => i.CreatedOn);
+            return;
+        }
+
+        query = sortBy switch
+        {
+            "createdon" => desc ? query.OrderByDescending(i => i.CreatedOn) : query.OrderBy(i => i.CreatedOn),
+            "updatedon" => desc ? query.OrderByDescending(i => i.UpdatedOn) : query.OrderBy(i => i.UpdatedOn),
+            "duedate" => desc ? query.OrderByDescending(i => i.DueDate) : query.OrderBy(i => i.DueDate),
+            "priority" => desc ? query.OrderByDescending(i => i.Priority) : query.OrderBy(i => i.Priority),
+            "status" => desc ? query.OrderByDescending(i => i.Status) : query.OrderBy(i => i.Status),
+            "title" => desc ? query.OrderByDescending(i => i.Title) : query.OrderBy(i => i.Title),
+            "assigneename" => desc
+                ? query.OrderByDescending(i => i.Assignee != null ? i.Assignee.Username : null)
+                : query.OrderBy(i => i.Assignee != null ? i.Assignee.Username : null),
+            _ => desc ? query.OrderByDescending(i => i.CreatedOn) : query.OrderBy(i => i.CreatedOn)
+        };
+    }
+
+    private static void ApplyPaging(ref IQueryable<Issue> query, IssueFilterRequest filter)
+    {
+        var page = filter.PageNumber.GetValueOrDefault(1);
+        if (page < 1) page = 1;
+
+        var size = filter.PageSize.GetValueOrDefault(20);
+        if (size < 1) size = 1;
+        if (size > 100) size = 100;
+
+        var skip = (page - 1) * size;
+        query = query.Skip(skip).Take(size);
     }
 }

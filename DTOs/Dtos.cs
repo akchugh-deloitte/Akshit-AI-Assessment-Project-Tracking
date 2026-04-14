@@ -83,6 +83,15 @@ public record IssueFilterRequest
     public int? AssigneeId { get; init; }
     public string? Search { get; init; }  // title search
     public DateTime? DueBefore { get; init; }
+
+    // Pagination (optional)
+    public int? PageNumber { get; init; }
+    public int? PageSize { get; init; }
+
+    // Sorting (optional)
+    // Allowed: createdOn, updatedOn, dueDate, priority, status, title, assigneeName
+    public string? SortBy { get; init; }
+    public string? SortDir { get; init; } // asc|desc
 }
 
 // ── Comment ───────────────────────────────────────────────────────────────────
