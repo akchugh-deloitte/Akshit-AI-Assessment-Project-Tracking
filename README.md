@@ -87,6 +87,10 @@ Key packages (see ServiceApi.API.csproj):
 <img width="717" height="436" alt="image" src="https://github.com/user-attachments/assets/73db12f8-ff90-4f67-ae91-5232f9d357b1" />
 <img width="701" height="281" alt="image" src="https://github.com/user-attachments/assets/826d0e42-37d7-4fc3-b110-f9e61324bcd9" />
 <img width="719" height="326" alt="image" src="https://github.com/user-attachments/assets/9b27f104-60f0-4ab0-860d-55061854b5ba" />
+<img width="202" height="199" alt="image" src="https://github.com/user-attachments/assets/f42c6b6d-733f-4e62-a804-ee881cc185a8" />
+<img width="708" height="371" alt="image" src="https://github.com/user-attachments/assets/244ae7e1-5f21-4be1-980f-2d4396738ccb" />
+<img width="685" height="365" alt="image" src="https://github.com/user-attachments/assets/f0253fdc-e821-4dd1-b615-7e0db1a3d319" />
+
 
 
 ## Solution Structure
